@@ -10,4 +10,5 @@ object ConfigConstants {
   val hdfsDir: String = config.getString("hdfs-dir")
   val destFolder: String = config.getString("destination-folder")
   val imageUUID: String = config.getString("image-uuid")
+  val tempImageDir: String = config.getString("hdfs-temp-dir")
 }

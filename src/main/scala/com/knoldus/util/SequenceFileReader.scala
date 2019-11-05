@@ -3,7 +3,7 @@ package com.knoldus.util
 import java.io.{File, FileOutputStream, OutputStream}
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileStatus, FileSystem, LocatedFileStatus, Path, RemoteIterator}
+import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
 import org.apache.hadoop.io.{BytesWritable, SequenceFile, Text}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -16,6 +16,15 @@ trait HDFSConnectionFactory {
 }
 
 object ConnectionProvider extends HDFSConnectionFactory {
+  val localConf = new Configuration
+  System.setProperty("HADOOP_USER_NAME", "freaks")
+  localConf.set("fs.defaultFS", "hdfs://localhost:4569")
+  localConf.set("dfs.replication", "1")
+  val localFs = FileSystem.get(localConf)
+
+
+
+
   val conf = new Configuration
   System.setProperty("HADOOP_USER_NAME", ConfigConstants.hdfsUser)
   conf.set("fs.defaultFS", s"${ConfigConstants.hdfsUrl}")
@@ -37,10 +46,51 @@ object ConnectionProvider extends HDFSConnectionFactory {
     recursiveRead(rightFileUrl, imageUUID, false)
   }
 
+  def readPathAndSaveToHDFS(imageUUID: String, filesSaved: Int = 0): Future[Int] = Future {
+    val leftFileUrl = s"$dirPath$imageUUID/$imageUUID-L"
+    val rightFileUrl = s"$dirPath$imageUUID/$imageUUID-R"
+    recursiveReadHDFS(leftFileUrl, imageUUID, true)
+    recursiveReadHDFS(rightFileUrl, imageUUID, false)
+  }
+
+
+  private def saveTempFile(fileBytes: Array[Byte], filePath: String) : (String, String) = {
+    val path = new Path(filePath)
+    val file: FSDataOutputStream = localFs.create(path)
+    try {
+      file.write(fileBytes)
+    } catch {
+      case exception: Exception =>
+        println("Failed to save file in HDFS", exception)
+    } finally {
+      file.close()
+    }
+    (filePath, dirPath)
+  }
+
+  private def recursiveReadHDFS(path: String, UUID: String, isLeft: Boolean): Int = {
+    val pathSeq = new Path(path)
+    val reader: SequenceFile.Reader = new SequenceFile.Reader(fs, pathSeq, conf)
+    try {
+      val key: Text = new Text()
+      val value: BytesWritable = new BytesWritable()
+      while (reader.next(key, value)) {
+        val dir = s"${ConfigConstants.tempImageDir}${ConfigConstants.unitId}/$UUID/${if (isLeft) "Left" else "Right"}"
+        val filePath = s"$dir/${key.toString}"
+        saveTempFile(value.getBytes, filePath)
+      }
+    } catch {
+      case exception: Exception =>
+        println(s"$exception")
+        reader.close()
+    }
+    0
+  }
+
   private def recursiveRead(path: String, UUID: String, isLeft: Boolean): Int = {
     val pathSeq = new Path(path)
+    val reader: SequenceFile.Reader = new SequenceFile.Reader(fs, pathSeq, conf)
     try {
-      val reader: SequenceFile.Reader = new SequenceFile.Reader(fs, pathSeq, conf)
       val key: Text = new Text()
       val value: BytesWritable = new BytesWritable()
       while (reader.next(key, value)) {
@@ -59,6 +109,7 @@ object ConnectionProvider extends HDFSConnectionFactory {
     } catch {
       case exception: Exception =>
         println(s"$exception")
+        reader.close()
     }
     0
   }
