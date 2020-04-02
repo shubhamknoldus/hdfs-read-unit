@@ -47,6 +47,7 @@ object ConnectionProvider extends HDFSConnectionFactory {
   }
 
   def readPathAndSaveToHDFS(imageUUID: String, filesSaved: Int = 0): Future[Int] = Future {
+    println(s"Running for imageIds $imageUUID")
     val leftFileUrl = s"$dirPath$imageUUID/$imageUUID-L"
     val rightFileUrl = s"$dirPath$imageUUID/$imageUUID-R"
     recursiveReadHDFS(leftFileUrl, imageUUID, true)
@@ -63,7 +64,14 @@ object ConnectionProvider extends HDFSConnectionFactory {
       case exception: Exception =>
         println("Failed to save file in HDFS", exception)
     } finally {
-      file.close()
+      try {
+        file.close()
+      } catch {
+        case exception: Exception =>
+          println("Exception occurred in save temp file")
+      } finally {
+
+      }
     }
     (filePath, dirPath)
   }
@@ -81,7 +89,7 @@ object ConnectionProvider extends HDFSConnectionFactory {
       }
     } catch {
       case exception: Exception =>
-        println(s"$exception")
+        println(s"Exception in recursiveReadHDFS $exception")
         reader.close()
     }
     0

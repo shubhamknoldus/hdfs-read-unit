@@ -1,0 +1,5 @@
+export HDFS_URL=hdfs://192.168.11.103:4569
+export UNIT_ID=d9ed6016-1ee4-11ea-b990-00044be64e82
+export IMAGE_UUID=1fb1417d-c105-4345-accf-69f2db08d2bb
+export HDFS_USER=shubham
+export DESTINATION_FOLDER="/home/shubham/Desktop/Desktop/sequence-read/"
