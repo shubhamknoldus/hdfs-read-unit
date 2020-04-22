@@ -5,6 +5,10 @@ import java.time.Instant
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
+/**
+ * Main to run the application
+ *
+ */
 
 object HDFSReader extends App {
 

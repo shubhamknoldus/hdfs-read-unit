@@ -11,6 +11,9 @@ import org.apache.hadoop.io.{BytesWritable, SequenceFile, Text}
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 import scala.util.Try
 
+/**
+ * Custom execution context of 50 threads maximum of 40 files can be processed parallelly
+ */
 object ContextProvider {
   implicit val ec: ExecutionContextExecutorService = ExecutionContext.fromExecutorService(new java.util.concurrent.ForkJoinPool(50))
 
@@ -24,6 +27,13 @@ trait HDFSConnectionFactory {
   def closeFS: Unit = fs.close()
 }
 
+/**
+ * custome mode
+ * @param fileName sequence file name
+ * @param folderName one level up sub directory
+ * @param sequenceFilePath absolute path of the sequence file
+ * @param pathOnLocal path to be saved under
+ */
 case class HDFSPath(fileName: String, folderName: String, sequenceFilePath: String, pathOnLocal: String = "")
 
 object HDFSPath {
@@ -63,7 +73,7 @@ object ConnectionProvider extends HDFSConnectionFactory {
     processSlices(slices)
   }
 
-  def processSlices(slices: List[List[HDFSPath]], startingValue: Int = 0): Future[Int] = {
+ private def processSlices(slices: List[List[HDFSPath]], startingValue: Int = 0): Future[Int] = {
 
     slices match {
       case Nil =>
@@ -80,7 +90,7 @@ object ConnectionProvider extends HDFSConnectionFactory {
     }
   }
 
-  def createDirs: Map[String, Vector[HDFSPath]] = {
+  private def createDirs: Map[String, Vector[HDFSPath]] = {
     val grouped = filesAtPath.groupBy(_.folderName)
     println(s"Going to create ${grouped.size} directories")
     val dirs = grouped.map {
@@ -100,7 +110,6 @@ object ConnectionProvider extends HDFSConnectionFactory {
 
   private def recursiveRead(file: HDFSPath): Future[Int] = Future  {
       val pathSeq = new Path(file.sequenceFilePath)
-      println(s"Opened reader $pathSeq")
       val reader: SequenceFile.Reader = new SequenceFile.Reader(fs, pathSeq, conf)
       try {
         val key: Text = new Text()
@@ -127,7 +136,7 @@ object ConnectionProvider extends HDFSConnectionFactory {
   }
 
   @scala.annotation.tailrec
-  def getAllFilesWithFromTheDirectory(files: Vector[FileStatus], dirs: Vector[FileStatus]): Vector[FileStatus] = {
+  private def getAllFilesWithFromTheDirectory(files: Vector[FileStatus], dirs: Vector[FileStatus]): Vector[FileStatus] = {
     val (file, dir) = dirs.foldLeft((files, Vector.empty[FileStatus]))({
       case ((fileIn, dirIn), fileStatus) =>
         val (fileTes, dirTes) = fs.listStatus(fileStatus.getPath).partition(_.isFile)
@@ -139,14 +148,14 @@ object ConnectionProvider extends HDFSConnectionFactory {
   }
 
   @scala.annotation.tailrec
-  def generateSlices[T](imageList: List[T], slices: List[List[T]] = List.empty[List[T]], sliceValue: Int = 40): List[List[T]] = {
+  private def generateSlices[T](imageList: List[T], slices: List[List[T]] = List.empty[List[T]], sliceValue: Int = 40): List[List[T]] = {
     if (imageList.isEmpty) slices else {
       val (firstFour, rest) = imageList.span(imageList.indexOf(_) < 40)
       generateSlices(rest, slices ::: List(firstFour))
     }
   }
 
-  def checkIfSequenceFile(path: String): Boolean = {
+  private def checkIfSequenceFile(path: String): Boolean = {
     val filePath = fs.open(new Path(path))
     Try{
       val bA = new Array[Byte](4)

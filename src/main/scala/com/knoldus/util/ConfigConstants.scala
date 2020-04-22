@@ -2,6 +2,9 @@ package com.knoldus.util
 
 import com.typesafe.config.{Config, ConfigFactory}
 
+/**
+ * Just to load env vars from environment
+ */
 object ConfigConstants {
   val help =
     """
